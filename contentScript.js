@@ -463,6 +463,10 @@
     const statusText = document.createElement('p');
     statusText.className = 'inferno-status';
     tasksBody.appendChild(statusText);
+    const statusSubText = document.createElement('p');
+    statusSubText.className = 'inferno-status-note';
+    statusSubText.style.display = 'none';
+    tasksBody.appendChild(statusSubText);
     // Progress bar
     const progressContainer = document.createElement('div');
     progressContainer.className = 'inferno-progress';
@@ -631,20 +635,68 @@
       });
     }
 
+    function pluralize(n, one, many) {
+      return n === 1 ? one : many;
+    }
+
+    function computeStage(completed, total) {
+      if (total <= 0) return 0;
+      if (completed <= 0) return 0;
+      if (completed >= total) return 4;
+      const ratio = completed / total;
+      if (ratio <= 0.25) return 1;
+      if (ratio <= 0.5) return 2;
+      if (ratio <= 0.75) return 3;
+      return 4;
+    }
+
+    function stageMessage(completed, total) {
+      const stage = computeStage(completed, total);
+      switch (stage) {
+        case 0:
+          return 'Ready to ignite!';
+        case 1:
+          return 'Spark lit — keep going!';
+        case 2:
+          return 'Getting warmer!';
+        case 3:
+          return 'Flames are dancing!';
+        case 4:
+          return '🎉 Blazing magnificently!';
+        default:
+          return 'Ready to ignite!';
+      }
+    }
+
+    function subcopy(completed, total) {
+      if (total <= 0) return null;
+      if (completed === 0) return 'Pick one task to get the fire started.';
+      if (completed < total) {
+        return `Completed ${completed} ${pluralize(completed, 'task', 'tasks')} — nice stride.`;
+      }
+      return 'All tasks wrapped for today!';
+    }
+
     function updateProgress() {
       const total = tasks.length;
       const completed = tasks.filter(t => t.completed).length;
       const percent = total > 0 ? completed / total : 0;
       progressBar.style.width = (percent * 100) + '%';
-      const percentRounded = Math.round(percent * 100);
-      if (percent <= 0.25) {
-        statusText.textContent = 'May all your bacon burn! Let\'s get started!';
-      } else if (percent <= 0.5) {
-        statusText.textContent = `I\'m getting warmer! (${percentRounded}%)`;
-      } else if (percent < 1) {
-        statusText.textContent = `My flames are dancing! (${percentRounded}%)`;
+      progressContainer.setAttribute('role', 'progressbar');
+      progressContainer.setAttribute('aria-valuemin', '0');
+      progressContainer.setAttribute('aria-valuemax', String(total));
+      progressContainer.setAttribute('aria-valuenow', String(completed));
+      progressContainer.setAttribute('aria-valuetext', `${completed} of ${total} tasks complete`);
+
+      const headline = stageMessage(completed, total);
+      statusText.textContent = headline;
+
+      const secondary = subcopy(completed, total);
+      if (secondary) {
+        statusSubText.textContent = secondary;
+        statusSubText.style.display = 'block';
       } else {
-        statusText.textContent = `🎉 I\'m blazing magnificently!`;
+        statusSubText.style.display = 'none';
       }
     }
     function updateAvatarScale() {
