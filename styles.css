@@ -264,6 +264,26 @@
   color: #111827;
   line-height: 1.2;
 }
+.inferno-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inferno-card-message {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2563eb;
+  cursor: pointer;
+}
+.inferno-card-message:hover,
+.inferno-card-message:focus {
+  text-decoration: underline;
+  outline: none;
+}
 .inferno-card-meta {
   font-size: 12px;
   color: #6b7280;
@@ -304,22 +324,31 @@
   border-radius: 4px;
   white-space: nowrap;
 }
-.inferno-card-actions {
+.inferno-card-pairs {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #4b5563;
+  margin-top: 4px;
+}
+.inferno-card-pairs-label {
+  font-weight: 600;
+  color: #6b7280;
+}
+.inferno-card-pairs-avatars {
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
 }
-.inferno-card-action {
-  border: none;
-  background: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #6b7280;
-  padding: 2px;
-  transition: color 0.2s;
+.inferno-card-pairs-avatar,
+.inferno-partner-avatar {
+  flex-shrink: 0;
 }
-.inferno-card-action:hover {
-  color: #111827;
+.inferno-card-pairs-names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Pairings section */
@@ -379,8 +408,50 @@
 .inferno-pairing-btn:hover {
   background: #e5e7eb;
 }
+.inferno-pairing-btn:disabled,
+.inferno-pairing-btn-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+.inferno-pairing-btn:disabled:hover {
+  background: #f9fafb;
+}
 .inferno-pairing-target-label {
   font-weight: 600;
+}
+
+/* Student partner badge */
+.inferno-partner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #047857;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+.inferno-partner-avatars {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.inferno-partner-text {
+  font-weight: 500;
+}
+.inferno-partner-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  text-decoration: underline;
+}
+.inferno-partner-link:hover {
+  color: #1d4ed8;
 }
 
 /* Broadcast composer */
@@ -445,6 +516,13 @@
 #inferno-widget.collapsed .inferno-body,
 #inferno-instructor-widget.collapsed .inferno-body {
   display: none;
+}
+
+#inferno-widget.collapsed,
+#inferno-instructor-widget.collapsed {
+  bottom: auto;
+  height: auto;
+  max-height: none;
 }
 
 /* Header styles */

@@ -20,7 +20,10 @@
         "*://*.instructure.com/*",
         "*://canvas.asu.edu/*"
       ],
-      "js": ["contentScript.js"],
+      "js": [
+        "pairsStore.js",
+        "contentScript.js"
+      ],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }

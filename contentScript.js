@@ -17,11 +17,12 @@
 
   /*** Configuration and constants ***/
   // Storage keys
-  const TASKS_KEY        = 'infernoTasks';
-  const UNDERSTANDING_KEY= 'infernoUnderstandingLevel';
-  const CONVOS_KEY       = 'infernoConversations';
-  const STUDENTS_KEY     = 'infernoStudents';
-  const ROLE_KEY         = 'infernoRole';
+  const TASKS_KEY         = 'infernoTasks';
+  const UNDERSTANDING_KEY = 'infernoUnderstandingLevel';
+  const CONVOS_KEY        = 'infernoConversations';
+  const STUDENTS_KEY      = 'infernoStudents';
+  const ROLE_KEY          = 'infernoRole';
+  const STUDENT_SELF_KEY  = 'infernoStudentSelfId';
 
   // Understanding colour map
   const understandingColours = {
@@ -46,6 +47,23 @@
     high: '#7CE9C3',
     none: '#E4E7EB'
   };
+
+  const noop = () => {};
+  const pairsStore = (window.InfernoPairsStore) ? window.InfernoPairsStore : {
+    getPartners: () => [],
+    setPair: noop,
+    removePair: noop,
+    clearPairs: noop,
+    onPairsChange: () => noop
+  };
+
+  function indexById(list) {
+    const map = {};
+    (list || []).forEach((item) => {
+      if (item && item.id) map[item.id] = item;
+    });
+    return map;
+  }
 
   /**
    * Create a fire avatar element with optional glow and pulse.  This helper
@@ -151,6 +169,30 @@
   }
   function saveJSON(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function setupPanelCollapse(widget, body, toggleButton) {
+    let isCollapsed = false;
+
+    function applyState(nextState) {
+      isCollapsed = nextState;
+      widget.classList.toggle('collapsed', isCollapsed);
+      widget.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      if (body) {
+        body.setAttribute('aria-hidden', isCollapsed ? 'true' : 'false');
+      }
+      toggleButton.textContent = isCollapsed ? '+' : '–';
+      toggleButton.setAttribute('aria-label', isCollapsed ? 'Expand panel' : 'Collapse panel');
+      toggleButton.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+    }
+
+    toggleButton.type = 'button';
+    toggleButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      applyState(!isCollapsed);
+    });
+
+    applyState(false);
   }
 
   /*** Sample data factories (used when API access is unavailable) ***/
@@ -310,6 +352,15 @@
       students = generateSampleStudents();
       saveJSON(STUDENTS_KEY, students);
     }
+    const studentsById = indexById(students);
+    const selfId = localStorage.getItem(STUDENT_SELF_KEY) || 's1';
+    if (!studentsById[selfId]) {
+      studentsById[selfId] = {
+        id: selfId,
+        name: 'You',
+        understanding: currentUnderstanding || 'none'
+      };
+    }
 
     /*** UI creation ***/
     const widget = document.createElement('div');
@@ -328,14 +379,13 @@
     title.className = 'inferno-title';
     title.textContent = 'Study Motivation';
     header.appendChild(title);
+    const body = document.createElement('div');
+    body.className = 'inferno-body';
+    body.setAttribute('aria-hidden', 'false');
     // Collapse toggle to show/hide body
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'inferno-toggle';
-    toggleBtn.textContent = '-';
-    toggleBtn.addEventListener('click', () => {
-      const collapsed = widget.classList.toggle('collapsed');
-      toggleBtn.textContent = collapsed ? '+' : '-';
-    });
+    setupPanelCollapse(widget, body, toggleBtn);
     // Mode segmented control: Student | Instructor
     const modeContainer = document.createElement('div');
     modeContainer.className = 'inferno-mode-toggle';
@@ -365,8 +415,6 @@
     header.appendChild(toggleBtn);
     widget.appendChild(header);
     // Body
-    const body = document.createElement('div');
-    body.className = 'inferno-body';
     widget.appendChild(body);
 
     // Avatar container and fire avatar.  Use a custom SVG with gradient and pulsing glow.
@@ -377,6 +425,11 @@
     let avatarElement = createFireAvatar(currentUnderstanding || 'none', 'lg');
     avatarContainer.appendChild(avatarElement);
     body.appendChild(avatarContainer);
+
+    const partnerBadge = document.createElement('div');
+    partnerBadge.className = 'inferno-partner-badge';
+    partnerBadge.style.display = 'none';
+    body.appendChild(partnerBadge);
 
     // Panels container (Daily Tasks & Channel)
     const tasksPanel = document.createElement('div');
@@ -614,6 +667,114 @@
       const ringColour = understandingColours[currentUnderstanding] || understandingColours.none;
       avatarElement.style.setProperty('--avatar-color', ringColour);
     }
+    function updatePartnerBadge() {
+      if (!partnerBadge) return;
+      partnerBadge.innerHTML = '';
+      const partnerIds = pairsStore.getPartners(selfId);
+      const partnerNames = partnerIds
+        .map(pid => (studentsById[pid] ? studentsById[pid].name : null))
+        .filter(Boolean);
+      if (!partnerIds.length || !partnerNames.length) {
+        partnerBadge.style.display = 'none';
+        return;
+      }
+      partnerBadge.style.display = 'inline-flex';
+      const avatarsWrap = document.createElement('span');
+      avatarsWrap.className = 'inferno-partner-avatars';
+      partnerIds.slice(0, 2).forEach(pid => {
+        const partner = studentsById[pid];
+        if (!partner) return;
+        const avatar = createFireAvatar(partner.understanding || 'none', 'xs');
+        avatar.classList.add('inferno-partner-avatar');
+        avatarsWrap.appendChild(avatar);
+      });
+      partnerBadge.appendChild(avatarsWrap);
+      const preview = partnerNames.slice(0, 2).join(', ');
+      const extraCount = Math.max(0, partnerNames.length - 2);
+      const textSpan = document.createElement('span');
+      textSpan.className = 'inferno-partner-text';
+      textSpan.textContent = extraCount ? `Paired with ${preview} +${extraCount}` : `Paired with ${preview}`;
+      partnerBadge.appendChild(textSpan);
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'inferno-partner-link';
+      openBtn.textContent = 'Open chat';
+      openBtn.addEventListener('click', () => {
+        ensureBuddyThreads();
+        if (partnerNames.length === 1) {
+          showChatView(partnerNames[0]);
+        } else {
+          showChatView();
+          const firstPartnerId = partnerIds[0];
+          const buddyThread = conversations.find(c => c && c.buddyPartnerId === firstPartnerId);
+          if (buddyThread) {
+            openConversationInPanel(buddyThread.id);
+          }
+        }
+      });
+      partnerBadge.appendChild(openBtn);
+    }
+    function ensureBuddyThreads() {
+      const partnerIds = pairsStore.getPartners(selfId);
+      const partnerSet = new Set(partnerIds);
+      let changed = false;
+      const retained = [];
+      conversations.forEach(thread => {
+        if (thread && thread.buddyPartnerId && !partnerSet.has(thread.buddyPartnerId)) {
+          changed = true;
+          return;
+        }
+        retained.push(thread);
+      });
+      conversations = retained;
+      partnerIds.forEach(pid => {
+        const partner = studentsById[pid];
+        if (!partner) return;
+        const expectedTitle = `Study Buddy (${partner.name})`;
+        let thread = conversations.find(c => c && c.buddyPartnerId === pid);
+        if (!thread) {
+          thread = conversations.find(c => c && !c.buddyPartnerId && Array.isArray(c.participants) && c.participants.includes(partner.name));
+        }
+        if (!thread) {
+          thread = {
+            id: `buddy-${selfId}-${pid}`,
+            title: expectedTitle,
+            participants: ['Me', partner.name],
+            unread: 0,
+            messages: [
+              {
+                sender: 'Inferno',
+                text: `You're paired with ${partner.name}. Say hi!`,
+                time: Date.now()
+              }
+            ],
+            buddyPartnerId: pid
+          };
+          conversations.push(thread);
+          changed = true;
+        } else {
+          if (thread.title !== expectedTitle) {
+            thread.title = expectedTitle;
+            changed = true;
+          }
+          if (!thread.buddyPartnerId) {
+            thread.buddyPartnerId = pid;
+            changed = true;
+          }
+          if (!Array.isArray(thread.participants)) {
+            thread.participants = ['Me', partner.name];
+            changed = true;
+          } else if (!thread.participants.includes(partner.name)) {
+            thread.participants.push(partner.name);
+            changed = true;
+          }
+        }
+      });
+      if (changed) {
+        saveJSON(CONVOS_KEY, conversations);
+        renderThreadList();
+      }
+    }
     function updateMatchSection() {
       // Provide peer recommendations based on understanding level
       matchSection.innerHTML = '';
@@ -842,6 +1003,7 @@
       // Show chat panel
       // Show chat panel using flex layout to allow full-height chat view
       chatPanel.style.display = 'flex';
+      ensureBuddyThreads();
       // Render threads list
       renderThreadList();
       // If a specific name is provided (from peer match), open that conversation
@@ -1018,6 +1180,12 @@
     updateAvatarScale();
     updateAvatarColour();
     updateMatchSection();
+    ensureBuddyThreads();
+    updatePartnerBadge();
+    pairsStore.onPairsChange(() => {
+      ensureBuddyThreads();
+      updatePartnerBadge();
+    });
     // Notify background of tasks and current understanding
     chrome.runtime.sendMessage({ type: 'tasksStatus', tasks });
     if (currentUnderstanding && currentUnderstanding !== 'none') {
@@ -1038,6 +1206,7 @@
       conversations = generateSampleConversations();
       saveJSON(CONVOS_KEY, conversations);
     }
+    const studentsById = indexById(students);
 
     // Root instructor panel
     const widget = document.createElement('div');
@@ -1132,11 +1301,16 @@
         menuDropdown.style.display = 'none';
       }
     });
+    const body = document.createElement('div');
+    body.className = 'inferno-body';
+    body.setAttribute('aria-hidden', 'false');
+    const collapseToggle = document.createElement('button');
+    collapseToggle.className = 'inferno-toggle';
+    setupPanelCollapse(widget, body, collapseToggle);
+    header.appendChild(collapseToggle);
     widget.appendChild(header);
 
     /** Body container */
-    const body = document.createElement('div');
-    body.className = 'inferno-body';
     widget.appendChild(body);
 
     /** Students marquee banner */
@@ -1350,10 +1524,23 @@
         // Center: details
         const details = document.createElement('div');
         details.className = 'inferno-card-details';
+        const nameRow = document.createElement('div');
+        nameRow.className = 'inferno-card-name-row';
         const nameEl = document.createElement('div');
         nameEl.className = 'inferno-card-name';
         nameEl.textContent = s.name;
-        details.appendChild(nameEl);
+        nameRow.appendChild(nameEl);
+        const messageBtn = document.createElement('button');
+        messageBtn.type = 'button';
+        messageBtn.className = 'inferno-card-message';
+        messageBtn.title = `Message ${s.name}`;
+        messageBtn.textContent = 'Message';
+        messageBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openChatWithStudent(s.name);
+        });
+        nameRow.appendChild(messageBtn);
+        details.appendChild(nameRow);
         const meta = document.createElement('div');
         meta.className = 'inferno-card-meta';
         // Compute a friendly relative time for last activity
@@ -1393,13 +1580,18 @@
         // Badges row
         const badgesRow = document.createElement('div');
         badgesRow.className = 'inferno-card-badges';
+        const partnerIds = pairsStore.getPartners(s.id);
+        const hasPartners = partnerIds.length > 0;
+        const partnerNames = partnerIds
+          .map(pid => (studentsById[pid] ? studentsById[pid].name : null))
+          .filter(Boolean);
         if (s.badges && s.badges.extraCredit) {
           const badge = document.createElement('span');
           badge.className = 'inferno-card-badge';
           badge.textContent = 'Extra Credit';
           badgesRow.appendChild(badge);
         }
-        if (s.badges && s.badges.paired) {
+        if (hasPartners) {
           const badge = document.createElement('span');
           badge.className = 'inferno-card-badge';
           badge.textContent = 'Paired';
@@ -1412,29 +1604,35 @@
           badgesRow.appendChild(badge);
         }
         details.appendChild(badgesRow);
+        if (hasPartners && partnerNames.length > 0) {
+          const pairRow = document.createElement('div');
+          pairRow.className = 'inferno-card-pairs';
+          const label = document.createElement('span');
+          label.className = 'inferno-card-pairs-label';
+          label.textContent = 'Paired:';
+          pairRow.appendChild(label);
+          const avatarsWrap = document.createElement('span');
+          avatarsWrap.className = 'inferno-card-pairs-avatars';
+          partnerIds.slice(0, 2).forEach(pid => {
+            const partner = studentsById[pid];
+            if (!partner) return;
+            const avatar = createFireAvatar(partner.understanding || 'none', 'xs');
+            avatar.classList.add('inferno-card-pairs-avatar');
+            avatarsWrap.appendChild(avatar);
+          });
+          if (avatarsWrap.childNodes.length > 0) {
+            pairRow.appendChild(avatarsWrap);
+          }
+          const preview = partnerNames.slice(0, 2).join(', ');
+          const extra = Math.max(0, partnerNames.length - 2);
+          const namesSpan = document.createElement('span');
+          namesSpan.className = 'inferno-card-pairs-names';
+          namesSpan.textContent = extra ? `${preview} +${extra}` : preview;
+          pairRow.appendChild(namesSpan);
+          details.appendChild(pairRow);
+        }
         card.appendChild(details);
         // Right: actions
-        const actions = document.createElement('div');
-        actions.className = 'inferno-card-actions';
-        const msgBtn = document.createElement('button');
-        msgBtn.className = 'inferno-card-action';
-        msgBtn.title = `Message ${s.name}`;
-        msgBtn.textContent = '💬';
-        msgBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openChatWithStudent(s.name);
-        });
-        const nudgeBtn = document.createElement('button');
-        nudgeBtn.className = 'inferno-card-action';
-        nudgeBtn.title = `Nudge ${s.name}`;
-        nudgeBtn.textContent = '🔔';
-        nudgeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          alert(`Nudge sent to ${s.name}!`);
-        });
-        actions.appendChild(msgBtn);
-        actions.appendChild(nudgeBtn);
-        card.appendChild(actions);
         // Hover effect: tinted background based on status
         card.addEventListener('mouseover', () => {
           card.classList.add('hover');
@@ -1465,8 +1663,7 @@
 
       // Helper to create suggestion rows with actions.  Each source student
       // generates a row listing up to two recommended targets.  The last
-      // element of the row contains quick action buttons for messaging and
-      // pairing.
+      // element of the row contains the Create Pair action.
       function createSuggestionRows(sourceList, targetList) {
         sourceList.forEach(src => {
           // Determine targets excluding the source student
@@ -1509,23 +1706,28 @@
           // Actions container
           const actions = document.createElement('div');
           actions.className = 'inferno-pairing-actions';
-          // Message button opens chat with the first suggestion
-          const msgBtn = document.createElement('button');
-          msgBtn.className = 'inferno-pairing-btn';
-          msgBtn.textContent = 'Message';
-          msgBtn.title = `Message ${src.name} and ${suggestions[0].name}`;
-          msgBtn.addEventListener('click', () => {
-            openChatWithPair(src.name, suggestions[0].name);
-          });
           // Pair button shows toast (prototype)
           const pairBtn = document.createElement('button');
           pairBtn.className = 'inferno-pairing-btn';
-          pairBtn.textContent = 'Create Pair';
+          pairBtn.type = 'button';
           pairBtn.title = `Create pair ${src.name} + ${suggestions[0].name}`;
+          const refreshButton = () => {
+            const currentPartners = pairsStore.getPartners(src.id);
+            const allMatched = suggestions.every(tgt => currentPartners.includes(tgt.id));
+            pairBtn.disabled = allMatched;
+            pairBtn.textContent = allMatched ? 'Paired' : 'Create Pair';
+            pairBtn.classList.toggle('inferno-pairing-btn-disabled', allMatched);
+          };
+          refreshButton();
           pairBtn.addEventListener('click', () => {
-            alert('Pair created');
+            const currentPartners = pairsStore.getPartners(src.id);
+            const alreadyMatched = suggestions.every(tgt => currentPartners.includes(tgt.id));
+            if (alreadyMatched) return;
+            suggestions.forEach(tgt => {
+              pairsStore.setPair(src.id, tgt.id);
+            });
+            refreshButton();
           });
-          actions.appendChild(msgBtn);
           actions.appendChild(pairBtn);
           row.appendChild(actions);
           pairingsContainer.appendChild(row);
@@ -1547,12 +1749,6 @@
       renderThreadListInstructor();
       openConversationByNameInstructor(name);
     }
-    // Open chat with pair of students (for suggestions)
-    function openChatWithPair(name1, name2) {
-      // For prototype: open individual chat with the first student
-      openChatWithStudent(name1);
-    }
-
     /*** Chat functions (reuse from previous implementation) ***/
     function renderThreadListInstructor() {
       chatThreads.innerHTML = '';
@@ -1728,6 +1924,10 @@
     updateSummaryCounts();
     renderStudentsList();
     renderPairings();
+    pairsStore.onPairsChange(() => {
+      renderStudentsList();
+      renderPairings();
+    });
 
     // Append panel to body
     document.body.appendChild(widget);
