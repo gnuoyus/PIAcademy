@@ -1,0 +1,96 @@
+/* instructor.css
+ * Styles for the Inferno instructor dashboard.  It uses a clean layout with
+ * cards and grids to present aggregated signals and student progress in a
+ * clear, friendly manner.  Colors mirror those used in the student widget.
+ */
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 16px;
+  background-color: #f7f8fa;
+  color: #333333;
+}
+
+header h1 {
+  margin: 0 0 24px;
+  font-size: 24px;
+  color: #e52e71;
+}
+
+section {
+  margin-bottom: 32px;
+}
+
+h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  color: #333333;
+}
+
+.signals-container {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.signal-card {
+  background: #ffffff;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  padding: 12px;
+  flex: 1;
+  min-width: 100px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.signal-card .count {
+  font-size: 24px;
+  font-weight: bold;
+  margin-top: 8px;
+  color: #e52e71;
+}
+
+.students-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.student-card {
+  background: #ffffff;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.student-card .name {
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.student-card .avatar {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+}
+
+.student-card .progress-container {
+  width: 100%;
+  background: #f2f2f2;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.student-card .progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff8a00, #e52e71);
+  width: 0%;
+}
